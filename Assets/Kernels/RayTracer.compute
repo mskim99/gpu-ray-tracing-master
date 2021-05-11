@@ -42,6 +42,7 @@ int _ActiveMaterial;
 Texture2D<float4> _AccumulatedImage;
 StructuredBuffer<Sphere> _Spheres;
 StructuredBuffer<Plane> _Planes;
+StructuredBuffer<Cube> _Cubes;
 RWStructuredBuffer<Ray> _Rays;
 
 // ---------------------------------------------------------------------------------------------- //
@@ -105,6 +106,33 @@ bool HitPlanes(Ray r, float tMin, float tMax, out HitRecord rec) {
   return hitAnything;
 }
 
+bool HitCubes(Ray r, float tMin, float tMax, out HitRecord rec) {
+	
+  rec.t = -1.0;
+  rec.p = vec3(0,0,0);
+  rec.normal = vec3(0,0,0);
+  rec.uv = vec2(0,0);
+  rec.albedo = vec3(1,0,0);
+  rec.material = 0;
+
+  HitRecord tempRec;
+  bool hitAnything = false;
+  float closestSoFar = tMax;
+  uint numStructs;
+  uint stride;
+  _Planes.GetDimensions(numStructs, stride);
+
+  for (uint i = 0; i < numStructs; i++) {
+    if (_Cubes[i].Hit(r, tMin, closestSoFar, tempRec)) {
+      hitAnything = true;
+      closestSoFar = tempRec.t;
+      rec = tempRec;
+    }
+  }
+
+  return hitAnything;
+}
+
 // ---------------------------------------------------------------------------------------------- //
 // Main Shading Entry Point.
 // ---------------------------------------------------------------------------------------------- //
@@ -140,6 +168,29 @@ bool Color(inout Ray r, vec2 uv) {
     }
   } 
 
+  if (HitCubes(r, 0.001, FLT_MAX, rec))
+  {
+	rec.uv = uv;
+	r.color = vec3(0, 1, 0);
+	/*
+    Ray scattered = r;
+    vec3 attenuation = vec3(0.25, 0.25, 0.25);
+	
+	if (ScatterLambertian(r, rec, attenuation, scattered)
+        || ScatterMetal(r, rec, attenuation, scattered)
+        || ScatterDielectric(r, rec, attenuation, scattered)) {		
+      scattered.color = r.color * attenuation;
+      r = scattered;
+      return true;
+	  
+    } else {
+      return false;
+    }
+	*/
+	return false;
+	
+  }
+  
   if (HitPlanes(r, 0.001, FLT_MAX, rec))
   {
 	rec.uv = uv;

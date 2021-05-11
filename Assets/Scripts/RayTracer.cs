@@ -75,6 +75,9 @@ public class RayTracer : MonoBehaviour
     private ComputeBuffer m_spheresBuffer;
     private Sphere[] m_sphereData;
 
+    private ComputeBuffer m_cubesBuffer;
+    private Cube[] m_cubeData;
+
     private ComputeBuffer m_raysBuffer;
 
     private System.Random m_rng = new System.Random();
@@ -111,7 +114,15 @@ public class RayTracer : MonoBehaviour
         public int Material;
         public Vector3 Albedo;
     }
-
+    
+    public struct Cube
+    {
+        public Vector3 Center;
+        public float Scale;
+        public int Material;
+        public Vector3 Albedo;
+    }
+    
     void ReclaimResources()
     {
         if (m_accumulatedImage != null)
@@ -128,6 +139,11 @@ public class RayTracer : MonoBehaviour
         {
             m_planesBuffer.Dispose();
             m_planesBuffer = null;
+        }
+        if (m_cubesBuffer != null)
+        {
+            m_cubesBuffer.Dispose();
+            m_cubesBuffer = null;
         }
         if (m_raysBuffer != null)
         {
@@ -196,6 +212,7 @@ public class RayTracer : MonoBehaviour
         // Setup the scene.
         var sphereObjects = GameObject.FindObjectsOfType<RayTracedSphere>();
         var planeObjects = GameObject.FindObjectsOfType<RayTracedPlane>();
+        var cubeObjects = GameObject.FindObjectsOfType<RayTracedCube>();
 
         bool reallocate = false;
         if (m_sphereData == null || m_sphereData.Length != sphereObjects.Length)
@@ -206,6 +223,11 @@ public class RayTracer : MonoBehaviour
         if (m_planeData == null || m_planeData.Length != planeObjects.Length)
         {
             m_planeData = new Plane[planeObjects.Length];
+            reallocate = true;
+        }
+        if (m_cubeData == null || m_cubeData.Length != m_cubeData.Length)
+        {
+            m_cubeData = new Cube[cubeObjects.Length];
             reallocate = true;
         }
 
@@ -219,12 +241,18 @@ public class RayTracer : MonoBehaviour
             var obj = planeObjects[i];
             m_planeData[i] = obj.GetPlane();
         }
+        for (int i = 0; i < cubeObjects.Length; i++)
+        {
+            var obj = cubeObjects[i];
+            m_cubeData[i] = obj.GetCube();
+        }
 
-        if (reallocate || m_spheresBuffer == null || m_planesBuffer == null)
+        if (reallocate || m_spheresBuffer == null || m_planesBuffer == null || m_cubesBuffer == null)
         {
             // Setup GPU memory for the scene.
             const int kFloatsPerSphere = 8;
             const int kFloatsPerPlane = 8;
+            const int kFloatsPerCube = 8;
 
             if (m_spheresBuffer != null)
             {
@@ -235,6 +263,11 @@ public class RayTracer : MonoBehaviour
             {
                 m_planesBuffer.Dispose();
                 m_planesBuffer = null;
+            }
+            if (m_cubesBuffer != null)
+            {
+                m_cubesBuffer.Dispose();
+                m_cubesBuffer = null;
             }
 
             if (m_sphereData.Length > 0)
@@ -247,6 +280,11 @@ public class RayTracer : MonoBehaviour
                 m_planesBuffer = new ComputeBuffer(m_planeData.Length, sizeof(float) * kFloatsPerPlane);
                 RayTraceKernels.SetBuffer(m_rayTraceKernel, "_Planes", m_planesBuffer);
             }
+            if (m_cubeData.Length > 0)
+            {
+                m_cubesBuffer = new ComputeBuffer(m_cubeData.Length, sizeof(float) * kFloatsPerCube);
+                RayTraceKernels.SetBuffer(m_rayTraceKernel, "_Cubes", m_cubesBuffer);
+            }
         }
 
         if (m_spheresBuffer != null)
@@ -256,6 +294,10 @@ public class RayTracer : MonoBehaviour
         if (m_planesBuffer != null)
         {
             m_planesBuffer.SetData(m_planeData);
+        }
+        if (m_cubesBuffer != null)
+        {
+            m_cubesBuffer.SetData(m_cubeData);
         }
 
         m_sceneChanged = true;
@@ -305,6 +347,7 @@ public class RayTracer : MonoBehaviour
         RayTraceKernels.SetTexture(m_rayTraceKernel, "_AccumulatedImage", m_accumulatedImage);
         RayTraceKernels.SetBuffer(m_rayTraceKernel, "_Spheres", m_spheresBuffer);
         RayTraceKernels.SetBuffer(m_rayTraceKernel, "_Planes", m_planesBuffer);
+        RayTraceKernels.SetBuffer(m_rayTraceKernel, "_Cubes", m_cubesBuffer);
         RayTraceKernels.SetBuffer(m_rayTraceKernel, "_Rays", m_raysBuffer);
         RayTraceKernels.SetBuffer(m_rayTraceKernel, "_HemisphereSamples", m_fibSamples);
 
@@ -313,6 +356,7 @@ public class RayTracer : MonoBehaviour
         RayTraceKernels.SetBuffer(m_initCameraRaysKernel, "_Rays", m_raysBuffer);
         RayTraceKernels.SetBuffer(m_initCameraRaysKernel, "_Spheres", m_spheresBuffer);
         RayTraceKernels.SetBuffer(m_initCameraRaysKernel, "_Planes", m_planesBuffer);
+        RayTraceKernels.SetBuffer(m_initCameraRaysKernel, "_Cubes", m_cubesBuffer);
         RayTraceKernels.SetTexture(m_initCameraRaysKernel, "_AccumulatedImage", m_accumulatedImage);
         RayTraceKernels.SetBuffer(m_initCameraRaysKernel, "_HemisphereSamples", m_fibSamples);
 
@@ -321,6 +365,7 @@ public class RayTracer : MonoBehaviour
         RayTraceKernels.SetBuffer(m_normalizeSamplesKernel, "_Rays", m_raysBuffer);
         RayTraceKernels.SetBuffer(m_normalizeSamplesKernel, "_Spheres", m_spheresBuffer);
         RayTraceKernels.SetBuffer(m_normalizeSamplesKernel, "_Planes", m_planesBuffer);
+        RayTraceKernels.SetBuffer(m_normalizeSamplesKernel, "_Cubes", m_cubesBuffer);
         RayTraceKernels.SetTexture(m_normalizeSamplesKernel, "_AccumulatedImage", m_accumulatedImage);
         RayTraceKernels.SetBuffer(m_normalizeSamplesKernel, "_HemisphereSamples", m_fibSamples);
 
