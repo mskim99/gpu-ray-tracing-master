@@ -59,3 +59,12 @@ vec3 RandomInUnitSphere(vec2 uv) {
 vec3 RandomInUnitDisk(vec2 uv) {
   return RandomInUnitSphere(uv);
 }
+
+vec3 RandomInUnitCube(vec2 uv)
+{
+	vec3 p;
+	p = normalize(vec3(Noise(uv * 2000 * (1+_R0)) * 2 - .5,
+                  Noise(uv * 2000 * (1+_R1)) * 2 - .5,
+                  Noise(uv * 2000 * (1+_R2)) * 2 - .5)) - vec3(1,1,1);
+	return p;
+}

@@ -40,10 +40,14 @@ vec3 EnvColor(Ray r, vec2 uv) {
   return 1.0 * ((1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0));
 }
 
-bool ScatterLambertian(Ray rIn, HitRecord rec, inout vec3 attenuation, inout Ray scattered) {
+bool ScatterLambertian(Ray rIn, HitRecord rec, inout vec3 attenuation, inout Ray scattered, bool isSphere) {
   if (rec.material != kMaterialLambertian) { return false; }
 
-  vec3 target = rec.p + rec.normal + RandomInUnitSphere(rec.uv);
+  vec3 target  = vec3(0, 0, 0);
+  if (isSphere)
+	target = rec.p + rec.normal + RandomInUnitSphere(rec.uv);
+  else
+	target = rec.p + rec.normal + RandomInUnitCube(rec.uv);
   
   scattered.origin = rec.p + .001 * rec.normal;
   scattered.direction = target - rec.p;
@@ -55,7 +59,7 @@ bool ScatterLambertian(Ray rIn, HitRecord rec, inout vec3 attenuation, inout Ray
   return true;
 }
 
-bool ScatterMetal(Ray rIn, HitRecord rec, inout vec3 attenuation, inout Ray scattered) {
+bool ScatterMetal(Ray rIn, HitRecord rec, inout vec3 attenuation, inout Ray scattered, bool isSphere) {
   if (rec.material != kMaterialMetal) { return false; }
   
   // Fuzz should be a material parameter.
@@ -63,7 +67,11 @@ bool ScatterMetal(Ray rIn, HitRecord rec, inout vec3 attenuation, inout Ray scat
 
   vec3 reflected = reflect(normalize(rIn.direction), rec.normal);
   
-  scattered.direction = reflected + kFuzz * RandomInUnitSphere(rec.uv);
+  if (isSphere)
+	scattered.direction = reflected + kFuzz * RandomInUnitSphere(rec.uv);
+  else
+    scattered.direction = reflected + kFuzz * RandomInUnitCube(rec.uv);
+
   scattered.origin = rec.p + .001 * scattered.direction;
   scattered.color = rIn.color;
   scattered.bounces = rIn.bounces;
@@ -73,7 +81,7 @@ bool ScatterMetal(Ray rIn, HitRecord rec, inout vec3 attenuation, inout Ray scat
   return dot(scattered.direction, rec.normal) > 0;
 }
 
-bool ScatterDielectric(Ray rIn, HitRecord rec, inout vec3 attenuation, inout Ray scattered) {
+bool ScatterDielectric(Ray rIn, HitRecord rec, inout vec3 attenuation, inout Ray scattered, bool isSphere) {
   if (rec.material != kMaterialDielectric) { return false; }
 
   const float refIdx = 1.5;

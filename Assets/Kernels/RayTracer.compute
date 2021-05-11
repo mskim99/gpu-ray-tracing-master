@@ -157,9 +157,9 @@ bool Color(inout Ray r, vec2 uv) {
     // divergence and improve utilization by shading after tracing rays, though as with traditional
     // deferred shading, doing so will require more memory and bandwidth.
 
-    if (ScatterLambertian(r, rec, attenuation, scattered)
-        || ScatterMetal(r, rec, attenuation, scattered)
-        || ScatterDielectric(r, rec, attenuation, scattered)) {
+    if (ScatterLambertian(r, rec, attenuation, scattered, true)
+        || ScatterMetal(r, rec, attenuation, scattered, true)
+        || ScatterDielectric(r, rec, attenuation, scattered, true)) {
       scattered.color = r.color * attenuation;
       r = scattered;
       return true;
@@ -172,21 +172,20 @@ bool Color(inout Ray r, vec2 uv) {
   {
 	rec.uv = uv;
 	r.color = vec3(0, 1, 0);
-	/*
+	
     Ray scattered = r;
     vec3 attenuation = vec3(0.25, 0.25, 0.25);
 	
-	if (ScatterLambertian(r, rec, attenuation, scattered)
-        || ScatterMetal(r, rec, attenuation, scattered)
-        || ScatterDielectric(r, rec, attenuation, scattered)) {		
+	if (ScatterLambertian(r, rec, attenuation, scattered, true)
+        || ScatterMetal(r, rec, attenuation, scattered, true)
+        || ScatterDielectric(r, rec, attenuation, scattered, true)) {		
       scattered.color = r.color * attenuation;
       r = scattered;
-      return true;
-	  
+      return true;	  
     } else {
       return false;
     }
-	*/
+	
 	return false;
 	
   }
@@ -196,9 +195,9 @@ bool Color(inout Ray r, vec2 uv) {
 	rec.uv = uv;
     Ray scattered = r;
     vec3 attenuation = vec3(0,0,0);
-	if (ScatterLambertian(r, rec, attenuation, scattered)
-        || ScatterMetal(r, rec, attenuation, scattered)
-        || ScatterDielectric(r, rec, attenuation, scattered)) {
+	if (ScatterLambertian(r, rec, attenuation, scattered, true)
+        || ScatterMetal(r, rec, attenuation, scattered, true)
+        || ScatterDielectric(r, rec, attenuation, scattered, true)) {
       scattered.color = r.color * attenuation;
       r = scattered;
       return true;
