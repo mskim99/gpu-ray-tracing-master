@@ -260,45 +260,7 @@ bool Triangle::Hit(Ray r, float tMin, float tMax, out HitRecord rec) {
 	rec.uv = vec2(0,0);
 	rec.albedo = albedo;
 	rec.material = material;
-	/*
-	// check if ray and plane are parallel ?
-    float nrd = dot(normal, r.direction);
-    if (abs(nrd) < 0.0001) // almost 0 
-        return false; // they are parallel so they don't intersect ! 
- 
-    // compute d parameter using equation 2
-    float d = dot(normal, v0); 
- 
-    // compute t (equation 3)
-    float t = (dot(normal, r.origin) + d) / nrd; 
-    // check if the triangle is in behind the ray
-    if (t < 0) return false; // the triangle is behind 
- 
-    // compute the intersection point using equation 1
-    vec3 P = r.origin + t * r.direction; 
- 
-    // Step 2: inside-outside test
-    vec3 C; // vector perpendicular to triangle's plane 
- 
-    // edge 0
-    vec3 edge0 = v1 - v0; 
-    vec3 vp0 = P - v0; 
-    C = cross(edge0, vp0); 
-    if (dot(normal, C) < 0) return false; // P is on the right side 
- 
-    // edge 1
-    vec3 edge1 = v2 - v1; 
-    vec3 vp1 = P - v1; 
-    C = cross(edge1, vp1); 
-    if (dot(normal, C) < 0)  return false; // P is on the right side 
- 
-    // edge 2
-    vec3 edge2 = v0 - v2; 
-    vec3 vp2 = P - v2; 
-    C = cross(edge2, vp2); 
-    if (dot(normal, C) < 0) return false; // P is on the right side; 
-	*/
-
+	
 	// find vectors for two edges sharing vert0
     vec3 edge1 = v1 - v0;
     vec3 edge2 = v2 - v0;
