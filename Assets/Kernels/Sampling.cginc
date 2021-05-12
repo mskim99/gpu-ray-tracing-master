@@ -60,11 +60,23 @@ vec3 RandomInUnitDisk(vec2 uv) {
   return RandomInUnitSphere(uv);
 }
 
-vec3 RandomInUnitCube(vec2 uv)
+vec3 RandomInUnitCube(vec2 uv, vec3 normal)
 {
-	vec3 p;
-	p = normalize(vec3(Noise(uv * 2000 * (1+_R0)) * 2 - .5,
-                  Noise(uv * 2000 * (1+_R1)) * 2 - .5,
-                  Noise(uv * 2000 * (1+_R2)) * 2 - .5)) - vec3(1,1,1);
+	vec2 samplePos; 
+	float su0 = sqrt(uv.x);
+	samplePos = vec2(1 - su0, uv.y * su0);
+		
+	vec3 p = vec3(0, 0, 0);
+	/*
+	if (normal.x < -0.5) p += vec3(-0.5, samplePos.x, samplePos.y);
+	else if (normal.x > 0.5) p += vec3(0.5, samplePos.x, samplePos.y);
+	if (normal.y < -0.5) p += vec3(samplePos.x, -0.5, samplePos.y);
+	else if (normal.y > 0.5) p += vec3(samplePos.x, 0.5, samplePos.y);
+	if (normal.z < -0.5) p += vec3(samplePos.x, samplePos.y, -0.5);
+	else if (normal.z > 0.5) p += vec3(samplePos.x, samplePos.y, 0.5);
+	p = 2.0 * normalize(p) - vec3(1, 1, 1);
+		
+	p = 2.0 * normalize(vec3(_R0, _R1, _R2)) - vec3(1,1,1);
+	*/
 	return p;
 }

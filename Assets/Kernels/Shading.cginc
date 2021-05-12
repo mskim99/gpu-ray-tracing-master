@@ -47,7 +47,7 @@ bool ScatterLambertian(Ray rIn, HitRecord rec, inout vec3 attenuation, inout Ray
   if (isSphere)
 	target = rec.p + rec.normal + RandomInUnitSphere(rec.uv);
   else
-	target = rec.p + rec.normal + RandomInUnitCube(rec.uv);
+	target = rec.p + rec.normal + RandomInUnitCube(rec.uv, rec.normal);
   
   scattered.origin = rec.p + .001 * rec.normal;
   scattered.direction = target - rec.p;
@@ -70,14 +70,18 @@ bool ScatterMetal(Ray rIn, HitRecord rec, inout vec3 attenuation, inout Ray scat
   if (isSphere)
 	scattered.direction = reflected + kFuzz * RandomInUnitSphere(rec.uv);
   else
-    scattered.direction = reflected + kFuzz * RandomInUnitCube(rec.uv);
+    scattered.direction = reflected + kFuzz * RandomInUnitCube(rec.uv, rec.normal);
 
   scattered.origin = rec.p + .001 * scattered.direction;
-  scattered.color = rIn.color;
+  scattered.color = rIn.color;  
   scattered.bounces = rIn.bounces;
   scattered.material = kMaterialMetal;
 
   attenuation = rec.albedo;
+
+  if (!isSphere && dot(scattered.direction, rec.normal) < 0)
+	rec.normal = -rec.normal;
+
   return dot(scattered.direction, rec.normal) > 0;
 }
 

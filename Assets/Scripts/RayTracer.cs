@@ -78,6 +78,10 @@ public class RayTracer : MonoBehaviour
     private ComputeBuffer m_cubesBuffer;
     private Cube[] m_cubeData;
 
+    private ComputeBuffer m_trianglesBuffer;
+    private List<Triangle>[] m_triangleData;
+    private int totalTriangleNum;
+
     private ComputeBuffer m_raysBuffer;
 
     private System.Random m_rng = new System.Random();
@@ -115,6 +119,7 @@ public class RayTracer : MonoBehaviour
         public Vector3 Albedo;
     }
     
+    // Deprecated
     public struct Cube
     {
         public Vector3 Center;
@@ -123,6 +128,16 @@ public class RayTracer : MonoBehaviour
         public Vector3 Albedo;
     }
     
+    public struct Triangle
+    {
+        public Vector3 v0;
+        public Vector3 v1;
+        public Vector3 v2;
+        public Vector3 Normal;
+        public int Material;
+        public Vector3 Albedo;
+    }
+
     void ReclaimResources()
     {
         if (m_accumulatedImage != null)
@@ -144,6 +159,11 @@ public class RayTracer : MonoBehaviour
         {
             m_cubesBuffer.Dispose();
             m_cubesBuffer = null;
+        }
+        if (m_trianglesBuffer != null)
+        {
+            m_trianglesBuffer.Dispose();
+            m_trianglesBuffer = null;
         }
         if (m_raysBuffer != null)
         {
@@ -213,6 +233,7 @@ public class RayTracer : MonoBehaviour
         var sphereObjects = GameObject.FindObjectsOfType<RayTracedSphere>();
         var planeObjects = GameObject.FindObjectsOfType<RayTracedPlane>();
         var cubeObjects = GameObject.FindObjectsOfType<RayTracedCube>();
+        var triangleObjects = GameObject.FindObjectsOfType<RayTracedObj>();
 
         bool reallocate = false;
         if (m_sphereData == null || m_sphereData.Length != sphereObjects.Length)
@@ -228,6 +249,11 @@ public class RayTracer : MonoBehaviour
         if (m_cubeData == null || m_cubeData.Length != m_cubeData.Length)
         {
             m_cubeData = new Cube[cubeObjects.Length];
+            reallocate = true;
+        }
+        if (m_triangleData == null)
+        {
+            m_triangleData = new List<Triangle>[triangleObjects.Length];
             reallocate = true;
         }
 
@@ -247,12 +273,21 @@ public class RayTracer : MonoBehaviour
             m_cubeData[i] = obj.GetCube();
         }
 
-        if (reallocate || m_spheresBuffer == null || m_planesBuffer == null || m_cubesBuffer == null)
+        totalTriangleNum = 0;
+        for (int i = 0; i < triangleObjects.Length; i++)
+        {
+            var obj = triangleObjects[i];
+            m_triangleData[i] = obj.GetObjToTriangles();
+            totalTriangleNum += m_triangleData[i].Count;
+        }
+
+        if (reallocate || m_spheresBuffer == null || m_planesBuffer == null || m_cubesBuffer == null || m_trianglesBuffer == null)
         {
             // Setup GPU memory for the scene.
             const int kFloatsPerSphere = 8;
             const int kFloatsPerPlane = 8;
             const int kFloatsPerCube = 8;
+            const int kFloatsPerTriangle = 16;
 
             if (m_spheresBuffer != null)
             {
@@ -268,6 +303,11 @@ public class RayTracer : MonoBehaviour
             {
                 m_cubesBuffer.Dispose();
                 m_cubesBuffer = null;
+            }
+            if (m_trianglesBuffer != null)
+            {
+                m_trianglesBuffer.Dispose();
+                m_trianglesBuffer = null;
             }
 
             if (m_sphereData.Length > 0)
@@ -285,6 +325,11 @@ public class RayTracer : MonoBehaviour
                 m_cubesBuffer = new ComputeBuffer(m_cubeData.Length, sizeof(float) * kFloatsPerCube);
                 RayTraceKernels.SetBuffer(m_rayTraceKernel, "_Cubes", m_cubesBuffer);
             }
+            if (totalTriangleNum > 0)
+            {
+                m_trianglesBuffer = new ComputeBuffer(totalTriangleNum, sizeof(float) * kFloatsPerTriangle);
+                RayTraceKernels.SetBuffer(m_rayTraceKernel, "_Triangles", m_trianglesBuffer);
+            }
         }
 
         if (m_spheresBuffer != null)
@@ -298,6 +343,16 @@ public class RayTracer : MonoBehaviour
         if (m_cubesBuffer != null)
         {
             m_cubesBuffer.SetData(m_cubeData);
+        }
+        if (m_trianglesBuffer != null)
+        {
+            Triangle[] triangles = new Triangle[totalTriangleNum];
+            int count = 0;
+            for (int i = 0; i < m_triangleData.Length; i++)
+                for (int j =0; j < m_triangleData[i].Count; j++)
+                    triangles[count++] = m_triangleData[i][j];
+                    
+            m_trianglesBuffer.SetData(triangles);
         }
 
         m_sceneChanged = true;
@@ -348,6 +403,7 @@ public class RayTracer : MonoBehaviour
         RayTraceKernels.SetBuffer(m_rayTraceKernel, "_Spheres", m_spheresBuffer);
         RayTraceKernels.SetBuffer(m_rayTraceKernel, "_Planes", m_planesBuffer);
         RayTraceKernels.SetBuffer(m_rayTraceKernel, "_Cubes", m_cubesBuffer);
+        RayTraceKernels.SetBuffer(m_rayTraceKernel, "_Triangles", m_trianglesBuffer);
         RayTraceKernels.SetBuffer(m_rayTraceKernel, "_Rays", m_raysBuffer);
         RayTraceKernels.SetBuffer(m_rayTraceKernel, "_HemisphereSamples", m_fibSamples);
 
@@ -357,6 +413,7 @@ public class RayTracer : MonoBehaviour
         RayTraceKernels.SetBuffer(m_initCameraRaysKernel, "_Spheres", m_spheresBuffer);
         RayTraceKernels.SetBuffer(m_initCameraRaysKernel, "_Planes", m_planesBuffer);
         RayTraceKernels.SetBuffer(m_initCameraRaysKernel, "_Cubes", m_cubesBuffer);
+        RayTraceKernels.SetBuffer(m_initCameraRaysKernel, "_Triangles", m_trianglesBuffer);
         RayTraceKernels.SetTexture(m_initCameraRaysKernel, "_AccumulatedImage", m_accumulatedImage);
         RayTraceKernels.SetBuffer(m_initCameraRaysKernel, "_HemisphereSamples", m_fibSamples);
 
@@ -366,6 +423,7 @@ public class RayTracer : MonoBehaviour
         RayTraceKernels.SetBuffer(m_normalizeSamplesKernel, "_Spheres", m_spheresBuffer);
         RayTraceKernels.SetBuffer(m_normalizeSamplesKernel, "_Planes", m_planesBuffer);
         RayTraceKernels.SetBuffer(m_normalizeSamplesKernel, "_Cubes", m_cubesBuffer);
+        RayTraceKernels.SetBuffer(m_normalizeSamplesKernel, "_Triangles", m_trianglesBuffer);
         RayTraceKernels.SetTexture(m_normalizeSamplesKernel, "_AccumulatedImage", m_accumulatedImage);
         RayTraceKernels.SetBuffer(m_normalizeSamplesKernel, "_HemisphereSamples", m_fibSamples);
 

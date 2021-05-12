@@ -43,6 +43,7 @@ Texture2D<float4> _AccumulatedImage;
 StructuredBuffer<Sphere> _Spheres;
 StructuredBuffer<Plane> _Planes;
 StructuredBuffer<Cube> _Cubes;
+StructuredBuffer<Triangle> _Triangles;
 RWStructuredBuffer<Ray> _Rays;
 
 // ---------------------------------------------------------------------------------------------- //
@@ -120,10 +121,38 @@ bool HitCubes(Ray r, float tMin, float tMax, out HitRecord rec) {
   float closestSoFar = tMax;
   uint numStructs;
   uint stride;
-  _Planes.GetDimensions(numStructs, stride);
+  _Cubes.GetDimensions(numStructs, stride);
 
   for (uint i = 0; i < numStructs; i++) {
     if (_Cubes[i].Hit(r, tMin, closestSoFar, tempRec)) {
+      hitAnything = true;
+      closestSoFar = tempRec.t;
+      rec = tempRec;
+    }
+  }
+
+  return hitAnything;
+}
+
+
+bool HitTriangles(Ray r, float tMin, float tMax, out HitRecord rec) {
+	
+  rec.t = -1.0;
+  rec.p = vec3(0,0,0);
+  rec.normal = vec3(0,0,0);
+  rec.uv = vec2(0,0);
+  rec.albedo = vec3(1,0,0);
+  rec.material = 0;
+
+  HitRecord tempRec;
+  bool hitAnything = false;
+  float closestSoFar = tMax;
+  uint numStructs;
+  uint stride;
+  _Triangles.GetDimensions(numStructs, stride);
+
+  for (uint i = 0; i < numStructs; i++) {
+    if (_Triangles[i].Hit(r, tMin, closestSoFar, tempRec)) {
       hitAnything = true;
       closestSoFar = tempRec.t;
       rec = tempRec;
@@ -148,14 +177,46 @@ bool Color(inout Ray r, vec2 uv) {
 
   r.bounces++;
     
+  if (HitTriangles(r, 0.001, FLT_MAX, rec))
+  {
+	rec.uv = uv;
+	
+    Ray scattered = r;
+    vec3 attenuation = vec3(0, 0, 0);
+	
+	if (ScatterLambertian(r, rec, attenuation, scattered, true)
+        || ScatterMetal(r, rec, attenuation, scattered, true)
+        || ScatterDielectric(r, rec, attenuation, scattered, true)) {
+      scattered.color = r.color * attenuation;
+      r = scattered;		  
+      return true;
+    } else {		  
+      return false;
+    } 
+  }
+
+  if (HitCubes(r, 0.001, FLT_MAX, rec))
+  {
+	rec.uv = uv;
+	
+    Ray scattered = r;
+    vec3 attenuation = vec3(0, 0, 0);
+	
+	if (ScatterLambertian(r, rec, attenuation, scattered, false)
+        || ScatterMetal(r, rec, attenuation, scattered, false)
+        || ScatterDielectric(r, rec, attenuation, scattered, false)) {		
+			scattered.color = r.color * attenuation;	  
+			r = scattered;
+			return true;	  
+	  } else {
+		  return false;
+      }
+   }
+  
   if (HitSpheres(r, 0.001, FLT_MAX, rec)) {
     rec.uv = uv;
     Ray scattered = r;
     vec3 attenuation = vec3(0,0,0);
-
-    // Performance note: Here the cost of all shading functions is paid for every ray. We can reduce
-    // divergence and improve utilization by shading after tracing rays, though as with traditional
-    // deferred shading, doing so will require more memory and bandwidth.
 
     if (ScatterLambertian(r, rec, attenuation, scattered, true)
         || ScatterMetal(r, rec, attenuation, scattered, true)
@@ -168,28 +229,6 @@ bool Color(inout Ray r, vec2 uv) {
     }
   } 
 
-  if (HitCubes(r, 0.001, FLT_MAX, rec))
-  {
-	rec.uv = uv;
-	r.color = vec3(0, 1, 0);
-	
-    Ray scattered = r;
-    vec3 attenuation = vec3(0.25, 0.25, 0.25);
-	
-	if (ScatterLambertian(r, rec, attenuation, scattered, true)
-        || ScatterMetal(r, rec, attenuation, scattered, true)
-        || ScatterDielectric(r, rec, attenuation, scattered, true)) {		
-      scattered.color = r.color * attenuation;
-      r = scattered;
-      return true;	  
-    } else {
-      return false;
-    }
-	
-	return false;
-	
-  }
-  
   if (HitPlanes(r, 0.001, FLT_MAX, rec))
   {
 	rec.uv = uv;
@@ -204,7 +243,6 @@ bool Color(inout Ray r, vec2 uv) {
     } else {
       return false;
     }
-	return false;
   }
 
   r.color *= EnvColor(r, uv);

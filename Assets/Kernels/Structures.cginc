@@ -77,6 +77,20 @@ struct Cube
 	bool Hit(Ray r, float tMin, float tMax, out HitRecord rec);
 };
 
+
+struct Triangle
+{
+	vec3 v0;
+	vec3 v1;
+	vec3 v2;
+	vec3 normal;
+	int material;
+	vec3 albedo;
+
+	bool Hit(Ray r, float tMin, float tMax, out HitRecord rec);
+};
+
+
 bool Sphere::Hit(Ray r, float tMin, float tMax, out HitRecord rec) {
   rec.t = tMin;
   rec.p = vec3(0,0,0);
@@ -152,11 +166,6 @@ bool Cube::Hit(Ray r, float tMin, float tMax, out HitRecord rec) {
   rec.albedo = albedo;
   rec.material = material;
 
-  // 0 : (1, 0, 0), 1 : (-1, 0, 0)
-  // 2 : (0, 1, 0), 3 : (0, -1, 0)
-  // 4 : (0, 0, 1), 5 : (0, 0, -1)
-  int normalState = 0; 
-  bool swapNormal = false;
   float s = 0.5 * scale;
 
   vec3 minPos = center - vec3(s, s, s);
@@ -170,8 +179,6 @@ bool Cube::Hit(Ray r, float tMin, float tMax, out HitRecord rec) {
 	float temp = tmin;
 	tmin = tmax;
 	tmax = temp;
-
-	// normalState = 1;
   }
  
   float tymin = (minPos.y - r.origin.y) / r.direction.y; 
@@ -182,25 +189,17 @@ bool Cube::Hit(Ray r, float tMin, float tMax, out HitRecord rec) {
 	float temp = tymin;
 	tymin = tymax;
 	tymax = temp;
-
-	// swapNormal = true;
   }
  
   if ((tmin > tymax) || (tymin > tmax)) 
       return false; 
  
   if (tymin > tmin)
-  {
 	tmin = tymin; 
 
-	// if (swapNormal) normalState = 3;
-	// else normalState = 2;
-  }
-       
   if (tymax < tmax) 
       tmax = tymax; 
  
-  // swapNormal = false;
 
   float tzmin = (minPos.z - r.origin.z) / r.direction.z; 
   float tzmax = (maxPos.z - r.origin.z) / r.direction.z; 
@@ -210,46 +209,156 @@ bool Cube::Hit(Ray r, float tMin, float tMax, out HitRecord rec) {
 	float temp = tzmin;
 	tzmin = tzmax;
 	tzmax = temp;
-
-	// swapNormal = true;
   }
  
   if ((tmin > tzmax) || (tzmin > tmax)) 
       return false; 
  
   if (tzmin > tmin) 
-  {
 	tmin = tzmin; 
-
-	// if (swapNormal) normalState = 5;
-	// else normalState = 4;
-  }
       
   if (tzmax < tmax) 
       tmax = tzmax; 
  
   rec.t = tmin;
   rec.p = r.PointAtParameter(rec.t);
-
+  rec.normal = normalize(rec.p - center);
+  rec.normal = vec3(0, 0, 1);  
+  
   // Calculate Normal  
-  vec3 pc = rec.p - center;
-  vec3 calNormal = vec3(-1, 0, 0);
-   if (pc.x >= - s - 0.0001 && pc.x <= - s + 0.0001) calNormal = vec3(-1, 0, 0);
-  else if (pc.x >= s - 0.0001 && pc.x <= s + 0.0001) calNormal = vec3(1, 0, 0);
-   if (pc.y >= - s - 0.0001 && pc.y <= - s + 0.0001) calNormal = vec3(0, -1, 0);
-  else if (pc.y >= s - 0.0001 && pc.y <= s + 0.0001) calNormal = vec3(0, 1, 0);
-   if (pc.z >= - s - 0.0001 && pc.z <= - s + 0.0001) calNormal = vec3(0, 0, -1);
-  else if (pc.z >= s - 0.0001 && pc.z <= s + 0.0001) calNormal = vec3(0, 0, 1);  
-  rec.normal = calNormal;
-
   /*
-  vec3 calNormal = vec3(1, 0, 0);
-  if (normalState == 1) calNormal = vec3(-1, 0, 0);
-  else if (normalState == 2) calNormal = vec3(0, 1, 0);
-  else if (normalState == 3) calNormal = vec3(0, -1, 0);
-  else if (normalState == 4) calNormal = vec3(0, 0, 1);
-  else if (normalState == 5) calNormal = vec3(0, 0, -1);
-  rec.normal = calNormal;
+  vec3 pc = rec.p - center;  
+  vec3 calNormal;
+  
+  if (abs(pc.x) >= 1.0 && abs(pc.y) < 1.0 &&  abs(pc.z) < 1.0)
+  {
+	 if (pc.x < 0) rec.normal = vec3(-1, 0, 0);
+	 else if (pc.x > 0) rec.normal = vec3(1, 0, 0);
+	 return true; 
+  }  
+  if (abs(pc.y) >= 1.0 && abs(pc.x) < 1.0 &&  abs(pc.z) < 1.0)
+  {
+	if (pc.y < 0) rec.normal = vec3(0, -1, 0);
+	else if (pc.y > 0) rec.normal = vec3(0, 1, 0);
+	 return true; 
+  }
+  if (abs(pc.z) >= 1.0 && abs(pc.x) < 1.0 &&  abs(pc.y) < 1.0)
+  {
+	 if (pc.z < 0) rec.normal = vec3(0, 0, -1);
+	 else if (pc.z > 0) rec.normal = vec3(0, 0, 1);
+	 return true;
+  }
   */
   return true; 
+}
+
+bool Triangle::Hit(Ray r, float tMin, float tMax, out HitRecord rec) {
+
+	rec.t = tMin;
+	rec.p = vec3(0,0,0);
+	rec.normal = vec3(0,0,0);
+	rec.uv = vec2(0,0);
+	rec.albedo = albedo;
+	rec.material = material;
+	/*
+	// check if ray and plane are parallel ?
+    float nrd = dot(normal, r.direction);
+    if (abs(nrd) < 0.0001) // almost 0 
+        return false; // they are parallel so they don't intersect ! 
+ 
+    // compute d parameter using equation 2
+    float d = dot(normal, v0); 
+ 
+    // compute t (equation 3)
+    float t = (dot(normal, r.origin) + d) / nrd; 
+    // check if the triangle is in behind the ray
+    if (t < 0) return false; // the triangle is behind 
+ 
+    // compute the intersection point using equation 1
+    vec3 P = r.origin + t * r.direction; 
+ 
+    // Step 2: inside-outside test
+    vec3 C; // vector perpendicular to triangle's plane 
+ 
+    // edge 0
+    vec3 edge0 = v1 - v0; 
+    vec3 vp0 = P - v0; 
+    C = cross(edge0, vp0); 
+    if (dot(normal, C) < 0) return false; // P is on the right side 
+ 
+    // edge 1
+    vec3 edge1 = v2 - v1; 
+    vec3 vp1 = P - v1; 
+    C = cross(edge1, vp1); 
+    if (dot(normal, C) < 0)  return false; // P is on the right side 
+ 
+    // edge 2
+    vec3 edge2 = v0 - v2; 
+    vec3 vp2 = P - v2; 
+    C = cross(edge2, vp2); 
+    if (dot(normal, C) < 0) return false; // P is on the right side; 
+	*/
+
+	// find vectors for two edges sharing vert0
+    vec3 edge1 = v1 - v0;
+    vec3 edge2 = v2 - v0;
+    
+    // begin calculating determinant - also used to calculate U parameter
+    float3 pvec = cross(r.direction, edge2);
+    
+    // if determinant is near zero, ray lies in plane of triangle
+    float det = dot(edge1, pvec);
+    
+    // use no culling
+    if (det > -1e-8 && det < 1e-8)
+        return false;
+
+    float inv_det = 1.0f / det;
+    
+    // calculate distance from vert0 to ray origin
+    float3 tvec = r.origin - v0;
+    
+    // calculate U parameter and test bounds
+    float u = dot(tvec, pvec) * inv_det;
+    if (u < 0.0 || u > 1.0f)
+        return false;
+    
+    // prepare to test V parameter
+    float3 qvec = cross(tvec, edge1);
+    
+    // calculate V parameter and test bounds
+    float v = dot(r.direction, qvec) * inv_det;
+    if (v < 0.0 || u + v > 1.0f)
+        return false;
+    
+    // calculate t, ray intersects triangle
+    float t = dot(edge2, qvec) * inv_det;
+    
+	/*
+	vec3 v0v1 = v1 - v0; 
+    vec3 v0v2 = v2 - v0; 
+    vec3 pvec = cross(r.direction, v0v2); 
+    float det = dot(v0v1, pvec);
+
+    // ray and triangle are parallel if det is close to 0
+    if (abs(det) < 0.0001) return false; 
+
+    float invDet = 1 / det; 
+ 
+    vec3 tvec = r.origin - v0; 
+    float u = dot(tvec, pvec)* invDet; 
+    if (u < 0 || u > 1) return false; 
+ 
+    vec3 qvec = cross(tvec, v0v1);
+    float v = dot(r.direction, pvec) * invDet; 
+    if (v < 0 || u + v > 1) return false; 
+ 
+    float t = dot(v0v2, qvec) * invDet; 
+   if (t <= 0) return false; 
+   */
+	rec.t = t;
+	rec.p = r.PointAtParameter(rec.t);
+	rec.normal = normal;
+
+    return true; // this ray hits the triangle 
 }
